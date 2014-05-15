@@ -49,11 +49,10 @@ public class SendMessageServlet extends BaseServlet {
 
 	static final String PARAMETER_DEVICE = "device";
 	static final String PARAMETER_MULTICAST = "multicastKey";
-	ArrayList<String> TITLE;
-	ArrayList<String> preTITLE;
-	ArrayList<String> LINK;
-	ArrayList<String> ICON;
-	
+	ArrayList<String> URL;
+	ArrayList<String> preURL;
+	ArrayList<String> SUBJECT;
+
 	ArrayList<Integer> updateIndex;
 
 	private Sender sender;
@@ -114,21 +113,18 @@ public class SendMessageServlet extends BaseServlet {
 
 		//ServletContextインタフェースのオブジェクトを取得
 		ServletContext sc = getServletContext();
-		//データをapplicationスコープで保存
-		sc.getAttribute("LIST");
 
-		TITLE = (ArrayList<String>) sc.getAttribute("TITLE");
-		preTITLE = (ArrayList<String>) sc.getAttribute("preTITLE");
-		LINK = (ArrayList<String>) sc.getAttribute("LINK");
-		ICON = (ArrayList<String>) sc.getAttribute("ICON");
+		SUBJECT = (ArrayList<String>) sc.getAttribute("SUBJECT");
+		URL = (ArrayList<String>) sc.getAttribute("URL");
+		preURL = (ArrayList<String>) sc.getAttribute("preURL");
 
 		updateIndex = new ArrayList<Integer>();
 
 		// 前回のデータと比較して新しい告知が何件存在するか検索します。
-		for (int i = 0; i < TITLE.size(); i++) {
-			if (preTITLE.indexOf(TITLE.get(i)) == -1) {
+		for (int i = 0; i < URL.size(); i++) {
+			if (preURL.indexOf(URL.get(i)) == -1) {
 				updateIndex.add(i);
-				logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + (i+1) + "件目: " + TITLE.get(i) + "\n");
+				logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + (i + 1) + "件目: " + SUBJECT.get(i) + "\n");
 
 			}
 		}
@@ -157,9 +153,8 @@ public class SendMessageServlet extends BaseServlet {
 		builder.addData("INDEX", String.valueOf(updateIndex.size())); // 更新された件数です。
 		for (int i = 0; i < updateIndex.size(); i++) {
 
-			builder.addData("TITLE"+(i+1), TITLE.get(updateIndex.get(i))); // 送信する件名データです。
-			builder.addData("URL"+(i+1), LINK.get(updateIndex.get(i))); // 送信するURLデータです。
-			builder.addData("ICON"+(i+1), ICON.get(updateIndex.get(i))); // 送信するICONデータです。
+			builder.addData("URL" + (i + 1), URL.get(updateIndex.get(i)));
+			builder.addData("SUBJECT" + (i + 1), SUBJECT.get(updateIndex.get(i)));
 
 		}
 		Message message = builder.build();
@@ -213,9 +208,9 @@ public class SendMessageServlet extends BaseServlet {
 		builder.addData("INDEX", String.valueOf(updateIndex.size())); // 更新された件数です。
 		for (int i = 0; i < updateIndex.size(); i++) {
 
-			builder.addData("TITLE"+(i+1), TITLE.get(updateIndex.get(i))); // 送信する件名データです。
-			builder.addData("URL"+(i+1), LINK.get(updateIndex.get(i))); // 送信するURLデータです。
-			builder.addData("ICON"+(i+1), ICON.get(updateIndex.get(i))); // 送信するICONデータです。
+			builder.addData("URL" + (i + 1), URL.get(updateIndex.get(i)));
+			builder.addData("SUBJECT" + (i + 1), SUBJECT.get(updateIndex.get(i)));
+
 		}
 
 		Message message = builder.build();

@@ -55,9 +55,10 @@ public class ScheduleJsoupTask extends HttpServlet {
 		// http://ja.wikipedia.org/wiki/%E3%82%A6%E3%82%A7%E3%83%96%E3%82%B9%E3%82%AF%E3%83%AC%E3%82%A4%E3%83%94%E3%83%B3%E3%82%B0
 		try {
 			document = Jsoup.connect(URL).get();
+
 		} catch (HttpStatusException e) {
 			resp.getWriter().println("メンテナンス中のため処理を中断します");
-			resp.getWriter().println("\n"+e);
+			resp.getWriter().println("\n" + e);
 			return;
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -65,56 +66,59 @@ public class ScheduleJsoupTask extends HttpServlet {
 
 		// 1ページ15行分のtitleとURLをデータストアに保存するため
 		// ArrayListに整形したデータを格納します。
-
+		ArrayList<String> SUBJECT = new ArrayList<String>();
+		ArrayList<String> URL = new ArrayList<String>();
 		// spanタグ内のaタグ要素を取得します。
 		// <span><a>hoge</a><span>
 		// 実行結果→<a>hoge</a>
-		Elements titles = document.select("span a");// 告知の件名です。
-		Elements dates = document.select("tr td font strong");// 告知した日付です。
-		Elements icon = document.select("tr td font img");// アイコン画像です。
 
-		//アイコン情報を格納します。
-		ArrayList<String> ICON = new ArrayList<String>();
-		for (Element tmp : icon) {
+		Elements href = document.select(".pickup dt a");// 
 
-			if (!tmp.attr("src").toString().endsWith("line.gif")) {
-				String str = tmp.attr("src").toString();
-				str = str.replaceAll("/nol/index2_image/", "");
-				str = str.replaceAll(".gif", "");
-				ICON.add(str);
-			}
-		}
-
-		ArrayList<String> TITLE = new ArrayList<String>();
-
-		// 日付をArrayListに格納します。
-		for (Element tmp : dates) {
-			String date = tmp.text();// 取得したHTMLからテキスト要素のみ取り出します。
-			// <strong>タグの要素には日付以外にも<img>タグの要素(改行コードのみ)も取得していたため
-			// 日付のみArrayListに格納する処理にします。
-			if (!date.equals("")) {
-				date = date.replaceAll("\\.", "/");// 2014.01.01→2014/01/01に置き換えます。
-				TITLE.add(date + " ");// ArrayListに格納します。(見やすいように末尾に空白を連結します)
-			}
-		}
-
-		// 日付に件名を追記します。
-		int index = 0;
-		for (Element tmp : titles) {
-			String title = TITLE.get(index) + tmp.text();// 日付に件名を文字列結合します。
-			TITLE.set(index, title); // indexを指定してArrayListの要素を置き換えます。
-			index++;
-		}
-
-		// URL(リンク先)もArrayListに格納します。
-		Elements href = document.select("tr td span a");
-		ArrayList<String> LINK = new ArrayList<String>();
 		for (Element tmp : href) {
-			if ((tmp.attr("href").toString()).startsWith("http")) {// 前方一致検索でhttpで始まる文字列か確認する
-				LINK.add(tmp.attr("href").toString()); // httpから始まる文字列(絶対パス)
-			} else {
-				LINK.add(URL + tmp.attr("href").toString()); // httpから始まらない文字列(相対パス)
+			String date = tmp.attr("href").toString();// 取得したHTMLからテキスト要素のみ取り出します。
+			if (date.startsWith("../news")) {// newsフォルダ以下にアクセスするURLのみ格納するため、前方一致検索を行います。
+				date = date.replaceAll("\\.\\.\\/", "http://mobile.gungho.jp/");// 相対パスを絶対パスに置換します。
+				URL.add(date);
 			}
+		}
+
+		Elements banner_block = document.select("#banner_block li a");// 
+
+		for (Element tmp : banner_block) {
+			String date = tmp.attr("href").toString();// 取得したHTMLからテキスト要素のみ取り出します。
+			if (date.startsWith("../news")) {// newsフォルダ以下にアクセスするURLのみ格納するため、前方一致検索を行います。
+				date = date.replaceAll("\\.\\.\\/", "http://mobile.gungho.jp/");// 相対パスを絶対パスに置換します。
+				URL.add(date);
+			}
+		}
+
+		for (int i = 0; i < URL.size(); i++) {
+			Document news = null;
+			try {
+				news = Jsoup.connect(URL.get(i)).get();
+
+			} catch (HttpStatusException e) {
+				return;
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			if (news != null) {
+				Elements title = news.getElementsByTag("title");
+
+				for (Element tmp : title) {
+					String date = tmp.text();// 取得したHTMLからテキスト要素のみ取り出します。
+					date = date.replaceAll("｜パズル＆ドラゴンズ", "");// 余計な文字を削除し文字列を整形します。
+					date = date.replaceAll("｜ パズル＆ドラゴンズ", "");// 余計な文字を削除し文字列を整形します。
+
+					SUBJECT.add(date);
+				}
+			}
+		}
+
+		resp.getWriter().println("\n最新の内容\n");
+		for (int i = 0; i < URL.size(); i++) {
+			resp.getWriter().println(SUBJECT.get(i) + " > " + URL.get(i));
 
 		}
 
@@ -132,9 +136,8 @@ public class ScheduleJsoupTask extends HttpServlet {
 			txn = datastore.beginTransaction();
 			try {
 				entity = new Entity(key);
-				entity.setProperty("Title", TITLE);
-				entity.setProperty("Url", LINK);
-				entity.setProperty("Icon", ICON);
+				entity.setProperty("Subject", SUBJECT);
+				entity.setProperty("Url", URL);
 
 				datastore.put(entity);
 
@@ -149,38 +152,59 @@ public class ScheduleJsoupTask extends HttpServlet {
 
 		}
 		// データストアに保存された前回取得した内容を取得します。
-		ArrayList<String> preTITLE = (ArrayList<String>) entity.getProperty("Title");
+		ArrayList<String> preSUBJECT = (ArrayList<String>) entity.getProperty("Subject");
+		ArrayList<String> preURL = (ArrayList<String>) entity.getProperty("Url");
 		resp.getWriter().println("\n前回の内容\n");
-		for (int i = 0; i < preTITLE.size(); i++) {
-			resp.getWriter().println(preTITLE.get(i));
+		for (int i = 0; i < preURL.size(); i++) {
+			resp.getWriter().println(preSUBJECT.get(i) + " > " + preURL.get(i));
+		}
+
+		// 前回のデータと比較して新しい告知が何件存在するか検索します。
+		for (int i = 0; i < URL.size(); i++) {
+			if (preURL.indexOf(URL.get(i)) == -1) {
+				logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + (i + 1) + "件目: " + SUBJECT.get(i) + "\n");
+
+			}
 		}
 
 		// 件名のArrayListを比較して前回から変更があるかないかを判断します。
-		if (TITLE.equals(preTITLE)) {
+		if (URL.equals(preURL)) {
 			resp.getWriter().println("\n変更なし\n");
 
 		} else {
 			resp.getWriter().println("\n変更あり\n");
 
-			//ServletContextインタフェースのオブジェクトを取得します。
-			ServletContext sc = getServletContext();
-			//データをapplicationスコープで保存します。
-			sc.setAttribute("TITLE", TITLE);
-			sc.setAttribute("preTITLE", preTITLE);
-			sc.setAttribute("LINK", LINK);
-			sc.setAttribute("ICON", ICON);
+			// 前回のデータと比較して新しい告知が何件存在するか検索します。
+			int index = 0;
+			for (int i = 0; i < URL.size(); i++) {
+				if (preURL.indexOf(URL.get(i)) == -1) {
+					index++;
+				}
+			}
 
-			Queue queue = QueueFactory.getQueue("send");
-			queue.add(withUrl("/sendAll"));
+			if (index == 0) {
+				resp.getWriter().println("\n新しい告知はなし\n");
+			} else {
+
+				resp.getWriter().println("\n新しい告知が" + index + "件あります");
+				//ServletContextインタフェースのオブジェクトを取得します。
+				ServletContext sc = getServletContext();
+				//データをapplicationスコープで保存します。
+				sc.setAttribute("SUBJECT", SUBJECT);
+				sc.setAttribute("URL", URL);
+				sc.setAttribute("preURL", preURL);
+
+				Queue queue = QueueFactory.getQueue("send");
+				queue.add(withUrl("/sendAll"));
+			}
 
 			// トランザクション処理を開始します。
 
 			txn = datastore.beginTransaction();
 			try {
 				entity = new Entity(key);
-				entity.setProperty("Title", TITLE);
-				entity.setProperty("Url", LINK);
-				entity.setProperty("Icon", ICON);
+				entity.setProperty("Subject", SUBJECT);
+				entity.setProperty("Url", URL);
 
 				datastore.put(entity);
 
@@ -194,5 +218,4 @@ public class ScheduleJsoupTask extends HttpServlet {
 		}
 
 	}
-
 }

@@ -40,7 +40,7 @@ public class ScheduleJsoupTask extends HttpServlet {
 	private static final String ENTITY_KEY = "Document";
 	//	private static final String ACCESS_KEY_FIELD = "Html";
 	// スクレイピングするページのURLを指定します。
-	private static final String URL = "http://www5a.biglobe.ne.jp/~yu-ayase/pad/";
+	private static final String URL = "http://mobile.gungho.jp/details/unei.html";
 
 	@SuppressWarnings("unchecked")
 	@Override

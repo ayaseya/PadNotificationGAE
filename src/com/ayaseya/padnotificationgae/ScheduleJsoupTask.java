@@ -40,7 +40,7 @@ public class ScheduleJsoupTask extends HttpServlet {
 	private static final String ENTITY_KEY = "Document";
 	//	private static final String ACCESS_KEY_FIELD = "Html";
 	// スクレイピングするページのURLを指定します。
-	private static final String URL = "http://mobile.gungho.jp/details/unei.html";
+	private static final String URL = "http://pad.gungho.jp/member/index.html";
 //	private static final String URL = "http://www5a.biglobe.ne.jp/~yu-ayase/pad/";
 	@SuppressWarnings("unchecked")
 	@Override
@@ -72,31 +72,31 @@ public class ScheduleJsoupTask extends HttpServlet {
 		// <span><a>hoge</a><span>
 		// 実行結果→<a>hoge</a>
 
-		Elements href = document.select(".pickup dt a");// 
+		Elements href = document.select(".pickup dl dt a");// 
 
 		for (Element tmp : href) {
 			String date = tmp.attr("href").toString();// 取得したHTMLからテキスト要素のみ取り出します。
-			if (date.startsWith("../news")) {// newsフォルダ以下にアクセスするURLのみ格納するため、前方一致検索を行います。
-				date = date.replaceAll("\\.\\.\\/", "http://mobile.gungho.jp/");// 相対パスを絶対パスに置換します。
-				URL.add(date);
+			if (!date.startsWith("http")) {
+				date = "http://pad.gungho.jp/member/" + date;
 			}
+			URL.add(date);
 		}
 
 		Elements banner_block = document.select("#banner_block li a");// 
 
 		for (Element tmp : banner_block) {
 			String date = tmp.attr("href").toString();// 取得したHTMLからテキスト要素のみ取り出します。
-			if (date.startsWith("../news")) {// newsフォルダ以下にアクセスするURLのみ格納するため、前方一致検索を行います。
-				date = date.replaceAll("\\.\\.\\/", "http://mobile.gungho.jp/");// 相対パスを絶対パスに置換します。
-				URL.add(date);
+			if (!date.startsWith("http")) {
+				date = "http://pad.gungho.jp/member/" + date;
 			}
+
+			URL.add(date);
 		}
 
 		for (int i = 0; i < URL.size(); i++) {
 			Document news = null;
 			try {
 				news = Jsoup.connect(URL.get(i)).get();
-
 			} catch (HttpStatusException e) {
 				return;
 			} catch (IOException e) {
@@ -105,18 +105,18 @@ public class ScheduleJsoupTask extends HttpServlet {
 
 			if (news != null) {
 				Elements title = news.getElementsByTag("title");
-
-				for (Element tmp : title) {
-					String date = tmp.text();// 取得したHTMLからテキスト要素のみ取り出します。
+				String date = "";
+				for (Element tmp : title) {					
+					date = date + tmp.text();// 取得したHTMLからテキスト要素のみ取り出します。
 					date = date.replaceAll("｜パズル＆ドラゴンズ", "");// 余計な文字を削除し文字列を整形します。
-					date = date.replaceAll("｜ パズル＆ドラゴンズ", "");// 余計な文字を削除し文字列を整形します。
-
-					SUBJECT.add(date);
+					date = date.replaceAll("｜ パズル＆ドラゴンズ", "");// 余計な文字を削除し文字列を整形します。				
 				}
-			}
+				SUBJECT.add(date);
+			} 
 		}
 
 		resp.getWriter().println("\n最新の内容\n");
+//		resp.getWriter().println(SUBJECT.size() + " > " + URL.size());
 		for (int i = 0; i < URL.size(); i++) {
 			resp.getWriter().println(SUBJECT.get(i) + " > " + URL.get(i));
 
@@ -147,7 +147,7 @@ public class ScheduleJsoupTask extends HttpServlet {
 					txn.rollback();
 				}
 			}
-			resp.getWriter().println("初回起動時のため比較するデータがありません");
+			resp.getWriter().println("\n初回起動時のため比較するデータがありません!");
 			return;
 
 		}
@@ -158,12 +158,11 @@ public class ScheduleJsoupTask extends HttpServlet {
 		for (int i = 0; i < preURL.size(); i++) {
 			resp.getWriter().println(preSUBJECT.get(i) + " > " + preURL.get(i));
 		}
-
+			
 		// 前回のデータと比較して新しい告知が何件存在するか検索します。
 		for (int i = 0; i < URL.size(); i++) {
 			if (preURL.indexOf(URL.get(i)) == -1) {
 				logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + (i + 1) + "件目: " + SUBJECT.get(i) + "\n");
-
 			}
 		}
 
